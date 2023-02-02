@@ -79,29 +79,54 @@ class DAO(Application):
         )
     
     @close_out
-    def close_out(self):
+    def close_out(self, voter_token: abi.Asset):
+        get_token_holding = (AssetHolding.balance(Int(0), Txn.assets[0]))
+        return Seq(
+            [
+                get_token_holding,
+                If(
+                    And(
+                        Global.round() <= App.globalGet(Bytes("VoteEnd")),
+                        get_token_holding.hasValue(),
+                    ),
+                    If(App.localGet(Int(0), Bytes("vote")) == Bytes("Yes"))
+                    .Then(App.globalPut(Bytes("YesCount"), App.globalGet(Bytes("YesCount")) - get_token_holding.value()))
+                    .ElseIf(App.localGet(Int(0), Bytes("vote")) == Bytes("No"))
+                    .Then(App.globalPut(Bytes("NoCount"), App.globalGet(Bytes("NoCount")) - get_token_holding.value()))
+                    .ElseIf(App.localGet(Int(0), Bytes("vote")) == Bytes("Abstain"))
+                    .Then(Return(Int(1))),
+                ),
+                Return(Int(1)),
+            ]
+        )
 
     @external
     def vote(self, voter_token: abi.Asset, vote: abi.String):
-        get_voter_holding = (AssetHolding.balance(Int(0), Txn.assets[0]),)
+        get_token_holding = (AssetHolding.balance(Int(0), Txn.assets[0]))
         return Seq(
-            # assert that the asset in the foreignAssets array is the voter token
-            Assert(voter_token.asset_id() == self.voter_token_id.get()),
-            # assert that voter token is held by sender
-            voter_token.holding(Txn.sender())
-            .balance()
-            .outputReducer(
-                lambda value, has_value: Assert(And(has_value, value > Int(0)))
-            ),
-            # assert that voting period is active
-            Assert(Global.latest_timestamp() >= self.vote_begin.get()),
-            Assert(Global.latest_timestamp() < self.vote_end.get()),
-            # increment yes or no based on vote
-            If(vote.get() == Bytes("yes"))
-            .Then(self.yes.set(self.yes.get() + Int(1)))
-            .ElseIf(vote.get() == Bytes("no"))
-            .Then(self.no.set(self.no.get() + Int(1)))
-            .Else(Approve()),
+            [
+                App.globalPut(Bytes("vote"), Txn.application_args[1]),
+                get_token_holding,
+                If(
+                    And(
+                        Global.round() >= App.globalGet(Bytes("VoteBegin")),
+                        Global.round() <= App.globalGet(Bytes("VoteEnd")),
+                        get_token_holding.hasValue(),
+                        Or(
+                            App.localGet(Int(0), Bytes("vote")) == Bytes("Yes"),
+                            App.localGet(Int(0), Bytes("vote")) == Bytes("No"),
+                            App.localGet(Int(0), Bytes("vote")) == Bytes("Abstain"),
+                        ),
+                    ),
+                    If(App.localGet(Int(0), Bytes("vote")) == Bytes("Yes"))
+                    .Then(App.globalPut(Bytes("YesCount"), App.globalGet(Bytes("YesCount")) + get_token_holding.value()))
+                    .ElseIf(App.localGet(Int(0), Bytes("vote")) == Bytes("No"))
+                    .Then(App.globalPut(Bytes("NoCount"), App.globalGet(Bytes("NoCount")) + get_token_holding.value()))
+                    .ElseIf(App.localGet(Int(0), Bytes("vote")) == Bytes("Abstain"))
+                    .Then(Return(Int(1))),
+                ),
+                Return(Int(1)),
+            ]
         )
 
 if __name__ == "__main__":
