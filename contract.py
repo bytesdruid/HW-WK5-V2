@@ -7,40 +7,54 @@ from typing import Final
 
 
 class DAO(Application):
+    # global byte 1 - key for the creator address
     Creator: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.bytes, default=Global.creator_address()
     )
 
+    # global int 1 - key for the registration begin round
     RegBegin: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 2 - key for the registration end round
     RegEnd: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 3 - key for the voting begin round
     VoteBegin: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 4 - key for the voting end round
     VoteEnd: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 5 - asset id of the voter token
     voter_token: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 6 - integer key for the number of yes votes
     yes: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # global int 7 - interger key for the number of no votes
     no: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64, default=Int(0)
     )
 
+    # local byte 1 - key for the vote of the voter
     vote: Final[AccountStateValue] = AccountStateValue(
         stack_type=TealType.bytes, default=Bytes("")
+    )
+
+    # local int 1 - key for if voter has voted
+    voted: Final[AccountStateValue] = AccountStateValue(
+        stack_type=TealType.uint64, default=Int(0)
     )
 
     @create
@@ -63,6 +77,9 @@ class DAO(Application):
                 Global.round() <= App.globalGet(Bytes("RegEnd")),
             )
         )
+    
+    @close_out
+    def close_out(self):
 
     @external
     def vote(self, voter_token: abi.Asset, vote: abi.String):
